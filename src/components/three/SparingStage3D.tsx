@@ -128,7 +128,7 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
 
     const disposables: Array<{ dispose: () => void }> = [];
 
-    // Skybox Cubemap from Contoh/forest3d/materials/ (copied to public/forest/)
+    // Skybox Cubemap from Contoh/forest3d/materials/ (Light Mode)
     const cubeLoader = new THREE.CubeTextureLoader();
     cubeLoader.setPath('/forest/');
     const skyboxTex = cubeLoader.load([
@@ -140,8 +140,93 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
       'nz.jpg',
     ]);
     skyboxTex.colorSpace = THREE.SRGBColorSpace;
-    scene.background = skyboxTex;
-    disposables.push(skyboxTex);
+
+    // Dedicated Dark Night Sky Cubemap (Dark Mode — deep matte night gradient, zero neon)
+    const makeNightFace = (type: 'side' | 'top' | 'bottom') => {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const g = c.getContext('2d');
+      if (g) {
+        if (type === 'top') {
+          g.fillStyle = '#040609';
+          g.fillRect(0, 0, 256, 256);
+        } else if (type === 'bottom') {
+          g.fillStyle = '#090c10';
+          g.fillRect(0, 0, 256, 256);
+        } else {
+          const grad = g.createLinearGradient(0, 0, 0, 256);
+          grad.addColorStop(0, '#040609');
+          grad.addColorStop(0.5, '#0b1017');
+          grad.addColorStop(0.55, '#111821');
+          grad.addColorStop(1, '#090c10');
+          g.fillStyle = grad;
+          g.fillRect(0, 0, 256, 256);
+        }
+      }
+      return c;
+    };
+    const nightSide = makeNightFace('side');
+    const nightSkyTex = new THREE.CubeTexture([
+      nightSide,
+      nightSide,
+      makeNightFace('top'),
+      makeNightFace('bottom'),
+      nightSide,
+      nightSide,
+    ]);
+    nightSkyTex.colorSpace = THREE.SRGBColorSpace;
+    nightSkyTex.needsUpdate = true;
+
+    scene.background = latestRef.current.theme === 'dark' ? nightSkyTex : skyboxTex;
+    disposables.push(skyboxTex, nightSkyTex);
+
+    // Subtle crisp pinpoint starfield dome (visible ONLY in Dark Mode, unaffected by fog)
+    const starCount = 420;
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+    let starSeed = 2026;
+    const starRand = () => {
+      starSeed = (starSeed * 16807) % 2147483647;
+      return starSeed / 2147483647;
+    };
+    const palette = [
+      new THREE.Color('#eef2f6'),
+      new THREE.Color('#d6e0ec'),
+      new THREE.Color('#f0ebe1'),
+    ];
+    for (let i = 0; i < starCount; i++) {
+      const theta = starRand() * Math.PI * 2;
+      // Distribute across upper sky dome above horizon
+      const cosPhi = 0.08 + starRand() * 0.92;
+      const sinPhi = Math.sqrt(Math.max(0, 1 - cosPhi * cosPhi));
+      const r = 135 + starRand() * 25;
+      starPositions[i * 3] = r * sinPhi * Math.cos(theta);
+      starPositions[i * 3 + 1] = r * cosPhi;
+      starPositions[i * 3 + 2] = r * sinPhi * Math.sin(theta);
+
+      const col = palette[i % palette.length];
+      const dim = 0.45 + starRand() * 0.55;
+      starColors[i * 3] = col.r * dim;
+      starColors[i * 3 + 1] = col.g * dim;
+      starColors[i * 3 + 2] = col.b * dim;
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+    const starMat = new THREE.PointsMaterial({
+      size: 1.6,
+      sizeAttenuation: false,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      fog: false,
+      depthWrite: false,
+    });
+    const starField = new THREE.Points(starGeo, starMat);
+    starField.visible = latestRef.current.theme === 'dark';
+    scene.add(starField);
+    disposables.push(starGeo, starMat);
 
     // Stable matte natural daylight (no fast spinning sun; adapts cleanly to Light/Dark theme)
     const hemi = new THREE.HemisphereLight(0xf6f3eb, 0x6f7a6d, 0.65 * Math.PI);
@@ -674,10 +759,14 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
       grassSystem.setDarkMode(isDark);
       treesSystem.setDarkMode(isDark);
 
-      scene.backgroundIntensity = isDark ? 0.24 : 0.96;
-      scene.fog = new THREE.FogExp2(isDark ? '#141e25' : '#d6cfc2', isDark ? 0.015 : 0.0085);
+      scene.background = isDark ? nightSkyTex : skyboxTex;
+      scene.backgroundIntensity = 1.0;
+      starField.visible = isDark;
+      scene.fog = new THREE.FogExp2(isDark ? '#090d12' : '#d6cfc2', isDark ? 0.016 : 0.0085);
 
-      const k = isDark ? 0.68 : 1.0;
+      const k = isDark ? 0.52 : 1.0;
+      hemi.color.set(isDark ? '#8ba0b5' : '#f6f3eb');
+      sun.color.set(isDark ? '#c2d2e3' : '#fff9ef');
       hemi.intensity = 0.65 * Math.PI * k;
       sun.intensity = 0.68 * Math.PI * k;
       fill.intensity = 0.18 * Math.PI * k;
@@ -1018,13 +1107,13 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
                 onClick={() => onSelectSubsystem(active ? 'all' : h.part)}
                 className={`pointer-events-auto absolute left-0 top-0 -ml-3 -mt-3 inline-flex items-center gap-1.5 py-0.5 pr-2.5 pl-1 rounded-full border text-xs whitespace-nowrap transition-colors will-change-transform ${
                   active
-                    ? 'bg-surface border-ink text-ink font-medium'
-                    : 'bg-surface/95 border-line text-muted hover:text-ink hover:border-line-strong'
+                    ? 'bg-ink border-ink text-surface font-semibold'
+                    : 'bg-surface border-line-strong text-ink font-medium hover:border-ink'
                 }`}
               >
                 <span
                   className={`w-3.5 h-3.5 rounded-full border-2 ${
-                    active ? 'border-ink bg-ink' : 'border-muted bg-surface'
+                    active ? 'border-surface bg-surface' : 'border-ink bg-surface'
                   }`}
                 />
                 <span className="hidden sm:inline">{t[h.labelKey]}</span>
@@ -1053,15 +1142,17 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
                 className={`pointer-events-auto absolute left-0 top-0 h-[34px] px-2.5 inline-flex items-center gap-1.5 rounded-md border text-xs whitespace-nowrap transition-colors will-change-transform ${
                   active
                     ? 'bg-accent-soft border-accent text-ink'
-                    : 'bg-surface/95 border-line text-muted hover:border-line-strong hover:text-ink'
+                    : 'bg-surface border-line-strong text-ink hover:border-ink'
                 } ${!isEnabled ? 'opacity-45' : ''}`}
               >
                 <span
                   className="w-2 h-2 rounded-[2px] shrink-0"
                   style={{ backgroundColor: color }}
                 />
-                <span>{p.key === 'debit' ? (lang === 'id' ? 'Debit' : 'Flow') : p.code}</span>
-                <b className="font-mono font-medium tabular-nums text-ink">
+                <span className="font-medium text-ink">
+                  {p.key === 'debit' ? (lang === 'id' ? 'Debit' : 'Flow') : p.code}
+                </span>
+                <b className="font-mono font-semibold tabular-nums text-ink">
                   {val.toFixed(p.decimals)}
                 </b>
                 {p.unit !== 'pH' && <small className="text-[11px] text-muted">{p.unit}</small>}
@@ -1075,7 +1166,7 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
       {!webglFailed && (
         <div className="absolute top-3 left-3 right-32 z-[3] flex flex-wrap gap-1.5 pointer-events-none">
           <div
-            className="pointer-events-auto inline-flex flex-wrap gap-1 p-1 rounded-md border border-line bg-surface/95"
+            className="pointer-events-auto inline-flex flex-wrap gap-1 p-1 rounded-md border border-line-strong bg-surface"
             role="group"
             aria-label="Focus Presets"
           >
@@ -1090,7 +1181,7 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
                   className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
                     active
                       ? 'bg-ink text-surface'
-                      : 'text-muted hover:bg-subtle hover:text-ink'
+                      : 'text-ink hover:bg-subtle'
                   }`}
                 >
                   {preset.label}
@@ -1112,7 +1203,7 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
             className={`w-8 h-8 grid place-items-center rounded-md border transition-colors ${
               autoRotate
                 ? 'bg-accent text-white border-accent'
-                : 'bg-surface/95 text-muted border-line hover:text-ink hover:border-line-strong'
+                : 'bg-surface text-ink border-line-strong hover:bg-subtle'
             }`}
           >
             <RotateCw className="w-4 h-4" />
@@ -1121,7 +1212,7 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
             type="button"
             onClick={() => apiRef.current?.zoomBy(0.8)}
             title={t.zoomInTitle}
-            className="w-8 h-8 grid place-items-center rounded-md border border-line bg-surface/95 text-muted hover:text-ink hover:border-line-strong transition-colors"
+            className="w-8 h-8 grid place-items-center rounded-md border border-line-strong bg-surface text-ink hover:bg-subtle transition-colors"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -1129,7 +1220,7 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
             type="button"
             onClick={() => apiRef.current?.zoomBy(1.25)}
             title={t.zoomOutTitle}
-            className="w-8 h-8 grid place-items-center rounded-md border border-line bg-surface/95 text-muted hover:text-ink hover:border-line-strong transition-colors"
+            className="w-8 h-8 grid place-items-center rounded-md border border-line-strong bg-surface text-ink hover:bg-subtle transition-colors"
           >
             <Minus className="w-4 h-4" />
           </button>
@@ -1138,7 +1229,7 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
 
       {/* Bottom-Left Active Part Info Card */}
       {!webglFailed && (
-        <div className="absolute left-3 bottom-3 z-[3] max-w-[300px] px-3.5 py-2.5 rounded-md border border-line bg-surface/95">
+        <div className="absolute left-3 bottom-3 z-[3] max-w-[300px] px-3.5 py-2.5 rounded-md border border-line-strong bg-surface">
           <h2 className="text-xs font-semibold text-ink">{infoTitle}</h2>
           <p className="text-[11px] text-muted mt-0.5 leading-relaxed">{infoDesc}</p>
         </div>
@@ -1146,7 +1237,7 @@ export const SparingStage3D: React.FC<SparingStage3DProps> = ({
 
       {/* Bottom-Right Interaction Hint */}
       {!webglFailed && (
-        <p className="hidden md:block absolute right-3 bottom-3 z-[2] text-[11px] text-ink bg-surface/80 px-2 py-0.5 rounded border border-line m-0 pointer-events-none">
+        <p className="hidden md:block absolute right-3 bottom-3 z-[2] text-[11px] text-ink bg-surface px-2.5 py-1 rounded border border-line-strong m-0 pointer-events-none">
           {t.stageHint}
         </p>
       )}
