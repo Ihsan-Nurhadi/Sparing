@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.gitignore
+Contoh
+SPARING_TRENGGINAS_EN.pdf
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-canvas: #f3f5f7;
+  --bg-surface: #ffffff;
+  --bg-subtle: #e8ecef;
+  --bg-elevated: #f8fafb;
+  --border-line: #d5dce1;
+  --border-strong: #b8c2c9;
+  --text-ink: #142029;
+  --text-muted: #50606b;
+  --text-faint: #7f8e99;
+  --accent-primary: #1d5887;
+  --accent-soft: #dde8f1;
+
+  --stage-top: #f1f4f6;
+  --stage-bottom: #d5dee3;
+  --stage-a: #f1f4f6;
+  --stage-b: #d5dee3;
+  --scene-ground: #a9b3b3;
+  --scene-water: #6f94a5;
+  --scene-bank: #8f9a9a;
+  --scene-concrete: #a3aaaa;
+  --scene-light: 1;
+
+  --status-ok-bg: #eaf3ee;
+  --status-ok-text: #2b734e;
+  --status-ok-border: #c7dfd2;
+
+  --status-warn-bg: #f9f1e2;
+  --status-warn-text: #8f6512;
+  --status-warn-border: #e5d1ab;
+
+  --status-err-bg: #faebe9;
+  --status-err-text: #9d3b32;
+  --status-err-border: #e5c1bd;
+
+  --param-ph: #4f86b3;
+  --param-cod: #4e9a74;
+  --param-tss: #b38a2e;
+  --param-nh3n: #8d6aa6;
+  --param-debit: #3e97a0;
+}
+
+.dark {
+  --bg-canvas: #000000;
+  --bg-surface: #0a0a0a;
+  --bg-subtle: #141414;
+  --bg-elevated: #111111;
+  --border-line: #242424;
+  --border-strong: #363636;
+  --text-ink: #f5f5f5;
+  --text-muted: #a3a3a3;
+  --text-faint: #737373;
+  --accent-primary: #7db0d8;
+  --accent-soft: #16222c;
+
+  --stage-top: #0f0f0f;
+  --stage-bottom: #000000;
+  --stage-a: #0f0f0f;
+  --stage-b: #000000;
+  --scene-ground: #262626;
+  --scene-water: #3a5c6c;
+  --scene-bank: #303030;
+  --scene-concrete: #585858;
+  --scene-light: 0.85;
+
+  --status-ok-bg: #0f1f16;
+  --status-ok-text: #72be96;
+  --status-ok-border: #1e3b2b;
+
+  --status-warn-bg: #211a0e;
+  --status-warn-text: #d4a64a;
+  --status-warn-border: #3d3018;
+
+  --status-err-bg: #241212;
+  --status-err-text: #db7a6e;
+  --status-err-border: #40201f;
+
+  --param-ph: #6ca0cb;
+  --param-cod: #68b38d;
+  --param-tss: #cca347;
+  --param-nh3n: #a887c0;
+  --param-debit: #5cb2bb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-canvas);
+  color: var(--text-ink);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sparing-stage-bg {
+  background: linear-gradient(180deg, var(--stage-top), var(--stage-bottom));
+}
+
+/* Clean minimal scrollbars without gloss */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}

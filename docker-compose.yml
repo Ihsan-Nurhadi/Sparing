@@ -1,0 +1,10 @@
+services:
+  sparing-dashboard:
+    container_name: sparing-dashboard
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      # Bisa diganti ke "127.0.0.1:3009:80" setelah domain HTTPS aktif agar port 3009 hanya diakses lewat Nginx host
+      - "3009:80"
